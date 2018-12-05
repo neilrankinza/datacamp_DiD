@@ -1,0 +1,157 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Starting in an R Notebook.
+
+May eventually want to move to Jupyter Notebook (see https://www.datacamp.com/community/blog/jupyter-notebook-r)
+
+# Introduction
+
+In the **Datacamp** project "Dr. Semmelweis and the Discovery of Handwashing" [link](https://www.datacamp.com/projects/49) we used data visualisation to explore the data Dr. Ignaz Semmelweis used to investigate the link between handwashing and death as a result of childbirth in the mid-1800s in Vienna. 
+
+You might remember that two things led Dr. Semmelweis to conclude that the lack of handwashing (or more specifically germs picked up from corpses and other sources) **caused** higher death rates amongst recent mothers. 
+
+1. He noticed different death rates in two clinics. Clinic 1, where many medical students who also examined corpses as part of their training, had higher death rates than clinic 2 which was mostly staffed by mid-wives who only tended to the women giving birth.
+2. Once he made handwashing obligatory in the summer of 1847 death rates in clinic 1 fell substantially.
+
+That's pretty strong evidence but we can imagine there might be something else. It seems like there was a [flood in Vienna in 1847](http://www.environmentandsociety.org/mml/painting-rescue-during-1847-vienna-flood) but also the opening of a [confectioner](https://www.gerstner-konditorei.at/en/gerstner-collection/geschichte.html) (candy store). Maybe the flood washed away things that were noxious to recent mothers or maybe the new chocolates helped protect against death after childbirth.
+
+In the analysis we only looked at outcomes for the group affected by the 'treatment' (the handwashing) and so cannot rule out explanations which may have been more general.
+
+# Using "difference in differences" to establish causality
+
+To be able to conclusively conclude that it was handwashing **caused** the fall in deaths we could run a randomised control trial (RCT), what we often call an A/B test in tech. Often though we can't randomised so need to look for other approaches. One approach which fits this context is called "difference in differences" (or DiD).
+
+What DiD does is it compares the outcomes between: 
+
+1. Two groups - the treatment (the handwashing group here) and a control. This is the first difference. And
+2. Before and after the treatment. The second difference.
+
+The analysis thus looks at the performance of the treatment group relative to the control group. If it was somethig common between the two groups which affected the outcome we would expect both groups to change in a smilar way.
+
+```{r}
+library(tidyverse)
+```
+
+# Start by looking at the data
+```{r}
+df <- read_csv("data/yearly_deaths_by_clinic.csv")
+
+# mutate
+df <- df %>% 
+  mutate(proportion_deaths = deaths/births)
+
+print(df)
+```
+
+# Some pictures
+```{r}
+ggplot(df, aes(x = year, y = proportion_deaths, colour = clinic)) + 
+  geom_line()
+```
+
+Certailny looks like deaths fell in the handwashing clinics relative to the control group.
+
+# Using a regression
+
+One way to look at the effect of the treatment is to use a set of dummy variables and estimate a linear regression. Dummy variables are indicators which take a value of 0 if FALSE or 1 if TRUE (or you could use a logical variable). You would set up a dummy variable for before and after the treatment (regardless of group) and another separate variable for being in the treatment group.
+
+## Setup variables
+```{r}
+df <- df %>% 
+  mutate(after_treatment = case_when(year >= 1847 ~ TRUE, 
+                                     TRUE ~ FALSE)) %>% 
+  mutate(treatment_group = case_when(clinic == "clinic 1" ~ TRUE, 
+                                     TRUE ~ FALSE))
+           
+print(df)     
+
+```
+
+$ Death = \beta_1  Treatment group + \beta_2  After treatment + \beta_3  (Treatment group * After treatment) $
+
+Remember that what a linear regression on a dummy variable does is take the average. So ...
+
+
+Maybe start with a simple regression
+
+```{r}
+
+reg1 <- lm(proportion_deaths ~ treatment_group, df)
+
+summary(reg1)
+
+```
+
+Discussion on averages
+
+```{r}
+
+reg2 <- lm(proportion_deaths ~ after_treatment, df)
+
+summary(reg2)
+
+```
+
+
+```{r}
+
+reg3 <- lm(proportion_deaths ~ treatment_group*after_treatment, df)
+
+summary(reg3)
+
+```
+
+Fell by 6.3 percentage points
+
+
+# Can we visualise this?
+
+USeful visual tool but may be complicated
+```{r}
+
+
+dummy_matrix <- df %>% 
+  select(treatment_group, after_treatment) %>% 
+    distinct()
+
+predictions <- dummy_matrix %>% 
+  mutate(pred = predict.lm(reg3, dummy_matrix)) %>% 
+ mutate(after_treatment = case_when(after_treatment == FALSE ~ 0, 
+                                     after_treatment == TRUE ~ 1))
+# Fix up figures etc
+ggplot(predictions, aes(x = after_treatment, y = pred, colour = treatment_group)) + 
+  geom_line() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+
+
+# The parallel trends assumption - is the control group a decent counterfactual
+
+
+```{r}
+
+df_pre <- df %>% 
+  filter(after_treatment == FALSE) %>% 
+  group_by(treatment_group) %>% 
+  arrange(year) %>% 
+  mutate(trend = row_number())
+
+
+```
+
+
+
+```{r}
+
+reg4 <- lm(proportion_deaths ~ treatment_group*trend, df_pre)
+
+summary(reg4)
+
+```
+
+Interactoin variable is not significant
