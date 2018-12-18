@@ -3,22 +3,39 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-Starting in an R Notebook.
+# Overview
 
-May eventually want to move to Jupyter Notebook (see https://www.datacamp.com/community/blog/jupyter-notebook-r)
+![Correlation vs causation (xkcd)](https://imgs.xkcd.com/comics/correlation.png)
+
+Often we want to find out whether something is not just correlated with, but actually *caused*, a specific outcome. For example, whether an advertising campaign led to higher sales or whether an intervention like handwashing resulted in fewer deaths. One common way to do this is through an A/B test or randomised control trial (RCT). In this approach participants or customers are randomly assigned to a 'treatment' and a 'control' group. Those in the control group have the same experience as 'normal' - we don't change anything for them, whereas those in the treatment group are 'exposed' to the new experience (such as the new advertising campaign or health intervention). 
+
+Because there are usually large (enough) numbers of participants in these types of tests, and because participants are randomly allocated 
+between the treatment and control groups, these two groups should look similar (in both observed and unobserved characteristics). The only thing that should differ, on average, between the two groups is whether they received the treatment or not. Since this is the case any differences in outcomes (like higher revenue or better survival rates) between the two groups can be ascribed to the treatment - we can say that the treatment *caused* the difference in outcomes.
+
+RCTs/ A/B tests are a good tool for determining causality if you are able to randomly allocate people to different groups. However, often they are infeasble for a number of potential reasons (for example you may want to conduct an evaluation after the intervention or programme has been run, or you are unable to allocate people to different groups because you do not currently have a feasible way to do this on your platform or within your organisation). You thus need to look at other approaches to determine *causality*.
+
+This set of projects looks at **'quasi-experimental'** approaches to doing just this. To do this requires setting up a 'counter-factual' or control group. The outcomes from this group are then compared against the outcomes for those from the treatment or intervention, and if the correct assumptions have been made, the differences can be attributed to the intervention or treatment - we can then say the treatment *caused* the differences in outcomes.
+
+These projects will cover 4 or 5 different ways. 
+
+1. Difference-in-differences (this project). In this approach we identify two groups who are on similar trajectories prior to the treatment and compare the differences in outcomes between the group which experienced the intervention and the one that did not before and after the intervention.
+2. [Regression discontinuity](https://github.com/neilrankinza/datacamp_RD). This approach looks at how outcomes vary around a 'discontinuity' or break which is used to assign people to different interventions. If people just above and just below the intervention are very similar any differences in outcomes can be attributed to the treatment. We use an application of Maimonides’ rule, which determines class sizes in Israel, to look at the impact of class sizes on school outcomes (the paper on this can be found [here](https://economics.mit.edu/files/8273)). This approach has also be used to calculate 'consumer surplus' (or how much 'benefit' consumers get) from Uber (the paper is [here](https://www.nber.org/papers/w22627.pdf)).
+3. [Instrumental variables](https://en.wikipedia.org/wiki/Instrumental_variables_estimation). In this approach we use another variable (called an instrumental variable), which is correlated with the treatment but not with unobservable characteristics, as a way to identify the impact of the treatment. These kinds of approaches have been used to examine how military service (for example the Vietnam draft where individuals were drafted based on date of birth) impacted [lifetime earnings](https://www.jstor.org/stable/2006669?seq=1#page_scan_tab_contents).
+4. Matching, synthetic controls and machine learning approaches. The last approach (which we might split into two projects) uses 'big' data and machine learning approaches to construct counter-factual groups which look very similar to those receiving the treatment. These kinds of approaches are currently at the leading-edge of the methodology and being developed by people like [Susan Athey](https://www.gsb.stanford.edu/faculty-research/faculty/susan-athey) at Stanford.   
+
 
 # Introduction
 
-In the **Datacamp** project "Dr. Semmelweis and the Discovery of Handwashing" [link](https://www.datacamp.com/projects/49) we used data visualisation to explore the data Dr. Ignaz Semmelweis used to investigate the link between handwashing and death as a result of childbirth in the mid-1800s in Vienna. 
+In the **Datacamp** project ["Dr. Semmelweis and the Discovery of Handwashing"](https://www.datacamp.com/projects/49) we used data visualisation to explore the link between handwashing and death as a result of childbirth in the mid-1800s in Vienna based on the pioneering work of Dr. Ignaz Semmelweis. 
 
 You might remember that two things led Dr. Semmelweis to conclude that the lack of handwashing (or more specifically germs picked up from corpses and other sources) **caused** higher death rates amongst recent mothers. 
 
-1. He noticed different death rates in two clinics. Clinic 1, where many medical students who also examined corpses as part of their training, had higher death rates than clinic 2 which was mostly staffed by mid-wives who only tended to the women giving birth.
+1. He noticed different death rates in two clinics. Clinic 1, which had many medical students who also examined corpses as part of their training, had higher death rates than clinic 2 which was mostly staffed by mid-wives who only tended to the women giving birth.
 2. Once he made handwashing obligatory in the summer of 1847 death rates in clinic 1 fell substantially.
 
-That's pretty strong evidence but we can imagine there might be something else. It seems like there was a [flood in Vienna in 1847](http://www.environmentandsociety.org/mml/painting-rescue-during-1847-vienna-flood) but also the opening of a [confectioner](https://www.gerstner-konditorei.at/en/gerstner-collection/geschichte.html) (candy store). Maybe the flood washed away things that were noxious to recent mothers or maybe the new chocolates helped protect against death after childbirth.
+That's pretty strong evidence for the **impact** of handwashing on mother mortality but we might want to make sure that it is indeed the case. You can imagine there might be something else which happened at the same time as the handwashing was implemented that might have influenced the fall in mortality. It seems like there was a [flood in Vienna in 1847](http://www.environmentandsociety.org/mml/painting-rescue-during-1847-vienna-flood) but also the opening of a [confectioner](https://www.gerstner-konditorei.at/en/gerstner-collection/geschichte.html) (candy store). It could have been that the flood washed away things that were noxious to recent mothers or maybe the new chocolates helped protect against death after childbirth?
 
-In the analysis we only looked at outcomes for the group affected by the 'treatment' (the handwashing) and so cannot rule out explanations which may have been more general.
+In the previous analysis we only looked at outcomes for the group affected by the 'treatment' (the handwashing) and so cannot rule out explanations which may have been more general. We thus need to check the outcomes for the group affected by the handwashing (the treatment group, clinic 1) and those not (the control group, clinic 2).
 
 # Using "difference in differences" to establish causality
 
@@ -29,13 +46,24 @@ What DiD does is it compares the outcomes between:
 1. Two groups - the treatment (the handwashing group here) and a control. This is the first difference. And
 2. Before and after the treatment. The second difference.
 
-The analysis thus looks at the performance of the treatment group relative to the control group. If it was somethig common between the two groups which affected the outcome we would expect both groups to change in a smilar way.
+The analysis thus looks at the performance of the treatment group relative to the control group. If it was something common between the two groups which affected the outcome we would expect both groups to change in a similar way.
+
+
+
+# Task 1: Load the tidyverse
 
 ```{r}
 library(tidyverse)
 ```
 
-# Start by looking at the data
+# Task 2: Load the data, mutate and look at the data
+
+In this task we: 
+
+- load the data (this is a modified version of the data used in the previous hadnwashing project) using `read_csv`
+- use `mutate` to create a new variable `proportion_deaths` which will be the outcome variable of interest
+- use `print()` to look at the data
+
 ```{r}
 df <- read_csv("data/yearly_deaths_by_clinic.csv")
 
@@ -46,17 +74,22 @@ df <- df %>%
 print(df)
 ```
 
-# Some pictures
+# Task 3: Look at the data
+
+In this task we use `ggplot` to look at the trends in the two groups before and after handwashing.
+
 ```{r}
 ggplot(df, aes(x = year, y = proportion_deaths, colour = clinic)) + 
   geom_line()
 ```
 
-Certailny looks like deaths fell in the handwashing clinics relative to the control group.
+The data certainly suggests that deaths fell in the handwashing clinics relative to the control group.
 
-# Using a regression
+# Task 4: Using a regression
 
 One way to look at the effect of the treatment is to use a set of dummy variables and estimate a linear regression. Dummy variables are indicators which take a value of 0 if FALSE or 1 if TRUE (or you could use a logical variable). You would set up a dummy variable for before and after the treatment (regardless of group) and another separate variable for being in the treatment group.
+
+Need to maybe add a bit more on regressions here.
 
 ## Setup variables
 ```{r}
@@ -70,12 +103,19 @@ print(df)
 
 ```
 
-$ Death = \beta_1  Treatment group + \beta_2  After treatment + \beta_3  (Treatment group * After treatment) $
 
-Remember that what a linear regression on a dummy variable does is take the average. So ...
+## Regressions
+
+The regression to be estimated is:
+
+$$ Death = \beta_1  Treatment group + \beta_2  After treatment + \beta_3  (Treatment group * After treatment) $$
+Explain a little bit here what each variable is and what each coefficient measures.
 
 
-Maybe start with a simple regression
+A useful feature of a linear regression on a dummy variable is that it takes the average (or difference in the averages between the two groups). Explain a little bit more about what I mean here.
+
+
+To look at this we first use a simple specification to just look at the differences between the treatment and control groups. Explain how we can read these off from the coefficient. Also add `stargazer` to represent output nicely.
 
 ```{r}
 
@@ -85,7 +125,7 @@ summary(reg1)
 
 ```
 
-Discussion on averages
+We can now do the same to look at the averages before and after 1847.
 
 ```{r}
 
@@ -95,6 +135,7 @@ summary(reg2)
 
 ```
 
+Finally we combine these two to estimate the equation above. Explain why we are looking at the interaction term.
 
 ```{r}
 
@@ -104,12 +145,17 @@ summary(reg3)
 
 ```
 
-Fell by 6.3 percentage points
+The regression results indicate that handwashing led to a fall in maternal mortality of 6.3 percentage points.
+
+
+It would be worthwhile doing a simple `group_by` table prior to the regression so that students can calculate the difference-in-differences "by hand". Will add this in full project.
+
 
 
 # Can we visualise this?
 
-USeful visual tool but may be complicated
+A useful way to see what is going on is to visualise the results. This could be something which is optional since it might be a bit complicated.
+
 ```{r}
 
 
@@ -130,8 +176,11 @@ ggplot(predictions, aes(x = after_treatment, y = pred, colour = treatment_group)
 ```
 
 
-# The parallel trends assumption - is the control group a decent counterfactual
+# The parallel trends assumption - is the control group a decent counterfactual?
 
+We need to check whether the control group is a decent counterfactual. A key assumption of DiD is that the control and treatment groups follow 'parallel' trends - i.e. they were moving in similar ways prior to the treatment. Explain this a bit more here.
+
+To look at this we will confine the sample to the period prior to the treatment and create a trend. We will then use a regression to examine whther the treatment group had a different trend to teh control group duirng this period. Substantiate this a bit more below.
 
 ```{r}
 
@@ -154,4 +203,7 @@ summary(reg4)
 
 ```
 
-Interactoin variable is not significant
+The interaction variable is not significant, indicating that these two groups were on simliar trends (not sure how pedantic we want to be here - we cannot reject the null that they are different?).
+
+# Conclusion
+Wrap up and summarise what we have done and found.
